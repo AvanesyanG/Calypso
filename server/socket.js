@@ -19,9 +19,12 @@ const setupSocket = (server) => {
 
         console.log(`Client Disconnected: ${socket.id}`);
 
-        for(const[userId, socketId] of userSocketMap.entries()) {
-            if(socketId === socket.id) {
-               userSocketMap.delete(userId);
+        for(const[userId, socketIds] of userSocketMap.entries()) {
+            if(socketIds.has(socket.id)) {
+               socketIds.delete(socket.id);
+               if(socketIds.size === 0) {
+                   userSocketMap.delete(userId);
+               }
                break;
             }
         }
@@ -29,21 +32,24 @@ const setupSocket = (server) => {
 
     const sendMessage = async(message) => {
 
-        const senderSocketId = userSocketMap.get(message.sender);
-        const recipientSocketId = userSocketMap.get(message.recipient);
-
         const createdMessage = await Message.create(message);
    
         const messageData = await Message.findById(createdMessage._id)
         .populate("sender", "id email firstName lastName image color")
         .populate("recipient", "id email firstName lastName image color");
 
-        if(recipientSocketId) {
-            io.to(recipientSocketId).emit("recieveMessage", messageData);
+        const senderSockets = userSocketMap.get(message.sender);
+        if (senderSockets) {
+            senderSockets.forEach(socketId => {
+                io.to(socketId).emit("recieveMessage", messageData);
+            });
         }
 
-        if(senderSocketId) {
-            io.to(senderSocketId).emit("recieveMessage", messageData);
+        const recipientSockets = userSocketMap.get(message.recipient);
+        if (recipientSockets) {
+            recipientSockets.forEach(socketId => {
+                io.to(socketId).emit("recieveMessage", messageData);
+            });
         }
 
     }
@@ -75,14 +81,18 @@ const setupSocket = (server) => {
 
         if(channel && channel.members) {
             channel.members.forEach((member)=> {
-                const memberSocketId = userSocketMap.get(member._id.toString());
-                if(memberSocketId) {
-                    io.to(memberSocketId).emit("recieve-channel-message", messageData);
+                const memberSockets = userSocketMap.get(member._id.toString());
+                if (memberSockets) {
+                    memberSockets.forEach(socketId => {
+                        io.to(socketId).emit("recieve-channel-message", messageData);
+                    });
                 }
             });
-                 const adminSocketId = userSocketMap.get(channel.admin.toString());
-                 if(adminSocketId) {
-                     io.to(adminSocketId).emit("recieve-channel-message", messageData);
+                 const adminSockets = userSocketMap.get(channel.admin.toString());
+                 if (adminSockets) {
+                     adminSockets.forEach(socketId => {
+                         io.to(socketId).emit("recieve-channel-message", messageData);
+                     });
                  }
       }
     }
@@ -92,7 +102,10 @@ const setupSocket = (server) => {
         const userId = socket.handshake.query.userId;
 
         if(userId) {
-            userSocketMap.set(userId, socket.id);
+            if (!userSocketMap.has(userId)) {
+                userSocketMap.set(userId, new Set());
+            }
+            userSocketMap.get(userId).add(socket.id);
             console.log(`User connected: ${userId} with socket ID: ${socket.id}`)
         } else {
             console.log("User ID not provided during connection.")
