@@ -234,31 +234,26 @@ export const updateProfile = async (request, response, next) => {
 };
    
     export const addProfileImage = async (request, response, next) => {
-
         try {
-            
-        if(!request.file) {
-            return response.status(400).send("File is required");
-        }
+            if(!request.file) {
+                return response.status(400).send("File is required");
+            }
 
-        let date = new Date().toLocaleDateString();
-
-        let fileName = "uploads/profiles/" + date + "_" + request.file.originalname;
-
-        renameSync(request.file.path, fileName);
-
-        const updatedUser = await User.findByIdAndUpdate(request.userID, {image: fileName},
-        {new: true, runValidators:true});
-    
-          return response.status(200).json({
-          image: updatedUser.image,
-        });
+            // Use the path that multer created
+            const updatedUser = await User.findByIdAndUpdate(
+                request.userID, 
+                {image: `uploads/profiles/${request.file.filename}`},
+                {new: true, runValidators:true}
+            );
+        
+            return response.status(200).json({
+                image: updatedUser.image,
+            });
     
         } catch (error) {
             console.log({error});
-            return Response.status(500).send("internal Server Error");
+            return response.status(500).send("Internal Server Error");
         }
-        next()
     };
 
     export const removeProfileImage = async (request, response, next) => {

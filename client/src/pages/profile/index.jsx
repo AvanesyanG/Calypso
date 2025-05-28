@@ -84,22 +84,22 @@ const Profile = () => {
         if (file) {
             const formData = new FormData();
             formData.append("profile-image", file);
-            const response = await apiClient.post(
-                ADD_PROFILE_IMAGE_ROUTE,
-                formData,
-                { withCredentials: true }
-            );
+            try {
+                const response = await apiClient.post(
+                    ADD_PROFILE_IMAGE_ROUTE,
+                    formData,
+                    { withCredentials: true }
+                );
 
-            if (response.status === 200 && response.data.image) {
-                setUserInfo({ ...userInfo, image: response.data.image });
-                toast.success("Image updated successfully.");
+                if (response.status === 200 && response.data.image) {
+                    setUserInfo({ ...userInfo, image: response.data.image });
+                    setImage(`${HOST}/${response.data.image}`);
+                    toast.success("Image updated successfully.");
+                }
+            } catch (error) {
+                console.error("Error uploading image:", error);
+                toast.error("Failed to upload image");
             }
-
-            const reader = new FileReader();
-            reader.onload = () => {
-                setImage(reader.result);
-            };
-            reader.readAsDataURL(file);
         }
     };
 
